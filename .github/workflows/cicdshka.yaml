@@ -18,3 +18,24 @@ jobs:
           cache: maven
       - name: Build
         run: mvn --batch-mode package
+      - name: Cache jar
+        uses: actions/upload-artifact@v3
+        with:
+          name: jar
+          path: target/hueBot-jar-with-dependencies.jar
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: jar
+          path: target
+      - name: Init SSH
+        run: |
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_SECRET }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Deploy with rsync
+        run: rsync -av target/hueBot-jar-with-dependencies.jar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/bot
+      - name: Reload service
+        run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'systemctl restart bot.service'
