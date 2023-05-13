@@ -40,4 +40,4 @@ jobs:
       - name: Deploy with rsync
         run: rsync -av target/hueBot-jar-with-dependencies.jar ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/bot
       - name: Reload service
-        run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'systemctl restart bot.service'
+        run: ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} 'sudo systemctl restart bot.service'
