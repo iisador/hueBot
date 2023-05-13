@@ -1,9 +1,12 @@
 package ru.isador.telega.huebot;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.jar.Manifest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,14 +22,28 @@ import ru.isador.converters.yt2mp3.Extraction;
 import ru.isador.converters.yt2mp3.ExtractionStatus;
 import ru.isador.converters.yt2mp3.StatusUpdate;
 import ru.isador.converters.yt2mp3.VideoConversionException;
-import ru.isador.converters.yt2mp3.YoutubeVideoConverter;
+import ru.isador.converters.yt2mp3.YoutubeLinkVideoConverter;
 import ru.isador.converters.yt2mp3.apiyoutubecc.ApiYoutubeMp3Extractor;
 
 public class HueBot extends TelegramLongPollingBot {
 
     private static final Logger logger = LoggerFactory.getLogger(HueBot.class);
+    private static final Version VERSION;
+    private static final DateTimeFormatter DTM_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private final YoutubeVideoConverter mp3Extractor;
+    static {
+
+        try {
+            Manifest mf = new Manifest(HueBot.class.getClassLoader().getResourceAsStream("META-INF/MANIFEST.MF"));
+            String version = mf.getMainAttributes().getValue("Implementation-Version");
+            LocalDateTime buildTimestamp = LocalDateTime.parse(mf.getMainAttributes().getValue("Build-Time"), DTM_FORMAT);
+            VERSION = new Version(version, buildTimestamp);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private final YoutubeLinkVideoConverter mp3Extractor;
     private final ExecutorService executor;
 
     public HueBot() {
@@ -77,21 +94,26 @@ public class HueBot extends TelegramLongPollingBot {
         @Override
         public void run() {
             logger.debug("{}: {}", update.getMessage().getFrom().getUserName(), update.getMessage().getText());
-            if ("/start".equalsIgnoreCase(update.getMessage().getText())) {
-                sendText(update, """
-                    Дороу. Я простой бот который преобразует outube видео в mp3.
-                    Просто скинь мне ссылку на видео, и в ответ получишь mp3 максимум 320 кбит/c.
-                    """);
-            } else {
-                try (Extraction ex = mp3Extractor.download(update.getMessage().getText(), new TelegaStatusUpdate())) {
-                    try {
-                        execute(SendAudio.builder().audio(new InputFile(ex.stream(), ex.fileName())).chatId(update.getMessage().getChat().getId()).build());
-                    } catch (TelegramApiException e) {
-                        logger.error("", e);
+            switch (update.getMessage().getText()) {
+                case "/start":
+                    sendText(update, """
+                        Дороу. Я простой бот который преобразует outube видео в mp3.
+                        Просто скинь мне ссылку на видео, и в ответ получишь mp3 максимум 320 кбит/c.
+                        """);
+                    break;
+                case "/version":
+                    sendText(update, String.format("Версия %s, от %s", VERSION.version(), VERSION.buildTimestamp().format(DTM_FORMAT)));
+                    break;
+                default:
+                    try (Extraction ex = mp3Extractor.downloadFromLink(update.getMessage().getText(), new TelegaStatusUpdate())) {
+                        try {
+                            execute(SendAudio.builder().audio(new InputFile(ex.stream(), ex.fileName())).chatId(update.getMessage().getChat().getId()).build());
+                        } catch (TelegramApiException e) {
+                            logger.error("", e);
+                        }
+                    } catch (VideoConversionException | IOException e) {
+                        sendText(update, e.getMessage());
                     }
-                } catch (VideoConversionException | IOException e) {
-                    sendText(update, e.getMessage());
-                }
             }
         }
 

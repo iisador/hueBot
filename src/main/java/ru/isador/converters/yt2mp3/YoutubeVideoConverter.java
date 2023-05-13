@@ -10,11 +10,11 @@ public interface YoutubeVideoConverter {
     /**
      * Основной метод обработки видео с ютуба.
      *
-     * @param link ссылка на видео.
+     * @param id код видео с youtube.
      *
      * @return информация о преобразованном файле.
      *
      * @since 1.0.0
      */
-    Extraction download(String link, StatusUpdate statusUpdate) throws VideoConversionException;
+    Extraction download(String id, StatusUpdate statusUpdate) throws VideoConversionException;
 }
