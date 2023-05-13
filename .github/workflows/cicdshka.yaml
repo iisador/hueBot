@@ -14,7 +14,7 @@ jobs:
           java-version: '17'
           distribution: 'oracle'
           architecture: x64
-          java-package: 'jre'
+          java-package: 'jdk'
           cache: maven
       - name: Build
         run: mvn --batch-mode package
