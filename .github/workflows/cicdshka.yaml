@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/chekout@v3
+      - uses: actions/checkout@v3
       - name: Setup JRE 17
         uses: actions/setup-java@v3
         with:
