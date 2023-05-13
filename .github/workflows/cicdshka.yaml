@@ -24,6 +24,7 @@ jobs:
           name: jar
           path: target/hueBot-jar-with-dependencies.jar
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v2
