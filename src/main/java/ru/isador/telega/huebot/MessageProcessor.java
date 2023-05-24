@@ -1,6 +1,6 @@
 package ru.isador.telega.huebot;
 
-import java.util.concurrent.Callable;
+import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +8,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import ru.isador.converters.yt2mp3.Extraction;
 import ru.isador.converters.yt2mp3.ExtractionStatus;
 import ru.isador.converters.yt2mp3.StatusUpdateListener;
+import ru.isador.converters.yt2mp3.VideoConversionException;
 import ru.isador.converters.yt2mp3.YoutubeLinkVideoConverter;
 import ru.isador.telega.huebot.version.VersionProvider;
 
@@ -16,7 +17,7 @@ import ru.isador.telega.huebot.version.VersionProvider;
  *
  * @since 2.0.1
  */
-public class MessageProcessor implements Callable<Extraction> {
+public class MessageProcessor implements Runnable {
 
     static final String VERSION_TEMPLATE = "Версия %s, от %s";
 
@@ -42,7 +43,7 @@ public class MessageProcessor implements Callable<Extraction> {
     }
 
     @Override
-    public Extraction call() throws Exception {
+    public void run() {
         logger.debug("{}: {}", update.getMessage().getFrom().getUserName(), update.getMessage().getText());
         Long chatId = update.getMessage().getChat().getId();
 
@@ -52,7 +53,6 @@ public class MessageProcessor implements Callable<Extraction> {
                     Дороу. Я простой бот который преобразует youtube видео в mp3.
                     Просто скинь мне ссылку на видео, и в ответ получишь mp3 максимум 320 кбит/c.
                     """, chatId);
-                return null;
             }
             case "/version" -> {
                 if (versionProvider == null) {
@@ -61,14 +61,18 @@ public class MessageProcessor implements Callable<Extraction> {
                 } else {
                     messageSender.sendText(String.format(VERSION_TEMPLATE, versionProvider.getVersion(), versionProvider.getBuildTimestamp()), chatId);
                 }
-                return null;
             }
             default -> {
                 if (mp3Extractor == null) {
                     logger.warn("No YoutubeLinkVideoConverter implementation found");
-                    return null;
+                } else {
+                    try (Extraction extraction = mp3Extractor.downloadFromLink(update.getMessage().getText(), new TelegaStatusUpdateListener(messageSender, chatId))) {
+                        messageSender.sendAudio(extraction, chatId);
+                    } catch (VideoConversionException | IOException e) {
+                        logger.error("", e);
+                        messageSender.sendText(e.getMessage(), chatId);
+                    }
                 }
-                return mp3Extractor.downloadFromLink(update.getMessage().getText(), new TelegaStatusUpdateListener(messageSender, chatId));
             }
         }
     }

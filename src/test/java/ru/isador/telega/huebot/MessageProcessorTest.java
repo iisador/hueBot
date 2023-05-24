@@ -26,10 +26,11 @@ class MessageProcessorTest {
     }
 
     @Test
-    void testStartCommand() throws Exception {
+    void testStartCommand() {
         MessageProcessor messageProcessor = new MessageProcessor(getCommand("/start"), messageSender);
+        messageProcessor.run();
 
-        Extraction result = messageProcessor.call();
+        Extraction result = messageSender.getExtraction();
         assertNull(result, "Conversion result should be empty");
 
         String expected = """
@@ -42,10 +43,11 @@ class MessageProcessorTest {
     }
 
     @Test
-    void testVersionNoProvider() throws Exception {
+    void testVersionNoProvider() {
         MessageProcessor messageProcessor = new MessageProcessor(getCommand("/version"), messageSender);
+        messageProcessor.run();
 
-        Extraction result = messageProcessor.call();
+        Extraction result = messageSender.getExtraction();
         assertNull(result, "Conversion result should be empty");
 
         String expected = "UNKNOWN";
@@ -55,11 +57,12 @@ class MessageProcessorTest {
     }
 
     @Test
-    void testVersion() throws Exception {
+    void testVersion() {
         MessageProcessor messageProcessor = new MessageProcessor(getCommand("/version"), messageSender);
         messageProcessor.setVersionProvider(new SimpleVersionProvider("1.0.0", "01.01.1970 00:00:00"));
+        messageProcessor.run();
 
-        Extraction result = messageProcessor.call();
+        Extraction result = messageSender.getExtraction();
         assertNull(result, "Conversion result should be empty");
 
         String expected = String.format(String.format(MessageProcessor.VERSION_TEMPLATE, "1.0.0", "01.01.1970 00:00:00"));
@@ -69,21 +72,23 @@ class MessageProcessorTest {
     }
 
     @Test
-    void testConversionNoConverter() throws Exception {
+    void testConversionNoConverter() {
         MessageProcessor messageProcessor = new MessageProcessor(getCommand("https://www.youtube.com/watch?v=oHg5SJYRHA0"), messageSender);
+        messageProcessor.run();
 
-        Extraction result = messageProcessor.call();
+        Extraction result = messageSender.getExtraction();
         assertNull(result, "Conversion result should be empty");
         assertTrue(messageSender.getMessages().isEmpty(), "Messages should be empty");
     }
 
     @Test
-    void testConversion() throws Exception {
+    void testConversion() {
         Extraction expected = new Extraction("test.mp3", null);
         MessageProcessor messageProcessor = new MessageProcessor(getCommand("https://www.youtube.com/watch?v=oHg5SJYRHA0"), messageSender);
         messageProcessor.setMp3Extractor(new YoutubeVideoConverterStub(expected));
+        messageProcessor.run();
 
-        Extraction result = messageProcessor.call();
+        Extraction result = messageSender.getExtraction();
         assertNotNull(result, "Conversion result should be present");
         assertEquals(expected.fileName(), result.fileName(), "Result filename doesn't match");
     }

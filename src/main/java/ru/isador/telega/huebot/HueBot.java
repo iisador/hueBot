@@ -1,7 +1,6 @@
 package ru.isador.telega.huebot;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -41,20 +40,22 @@ public class HueBot extends TelegramLongPollingBot implements MessageSender {
         ms.setVersionProvider(versionProvider);
         ms.setMp3Extractor(mp3Extractor);
 
-        try (Extraction extraction = executorService.submit(ms).get()) {
-            if (extraction != null) {
-                execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(update.getMessage().getChat().getId()).build());
-            }
-        } catch (TelegramApiException | InterruptedException | ExecutionException | IOException e) {
-            logger.error("", e);
-            sendText(e.getMessage(), update.getMessage().getChat().getId());
-        }
+        executorService.submit(ms);
     }
 
     @Override
     public void sendText(String text, Long chatId) {
         try {
             execute(SendMessage.builder().text(text).chatId(chatId).build());
+        } catch (TelegramApiException e) {
+            logger.error("", e);
+        }
+    }
+
+    @Override
+    public void sendAudio(Extraction extraction, Long chatId) {
+        try {
+            execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(chatId).build());
         } catch (TelegramApiException e) {
             logger.error("", e);
         }
@@ -82,7 +83,7 @@ public class HueBot extends TelegramLongPollingBot implements MessageSender {
 
     public static void main(String[] args) throws TelegramApiException, IOException {
         HueBot hueBot = new HueBot(Executors.newFixedThreadPool(5));
-                hueBot.setVersionProvider(new ManifestVersionProvider());
+        hueBot.setVersionProvider(new ManifestVersionProvider());
         hueBot.setMp3Extractor(new ApiYoutubeMp3Extractor());
 
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
