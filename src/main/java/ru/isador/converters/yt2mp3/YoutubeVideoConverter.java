@@ -8,6 +8,15 @@ package ru.isador.converters.yt2mp3;
 public interface YoutubeVideoConverter {
 
     /**
+     * То же что и {@code download(String id, StatusUpdateListener listener)}, только без прослушки.
+     *
+     * @since 2.0.1
+     */
+    default Extraction download(String id) throws VideoConversionException {
+        return download(id, null);
+    }
+
+    /**
      * Основной метод обработки видео с ютуба.
      *
      * @param id код видео с youtube.
@@ -16,5 +25,5 @@ public interface YoutubeVideoConverter {
      *
      * @since 1.0.0
      */
-    Extraction download(String id, StatusUpdate statusUpdate) throws VideoConversionException;
+    Extraction download(String id, StatusUpdateListener listener) throws VideoConversionException;
 }

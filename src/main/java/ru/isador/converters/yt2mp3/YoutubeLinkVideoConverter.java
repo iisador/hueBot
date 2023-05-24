@@ -1,57 +1,60 @@
 package ru.isador.converters.yt2mp3;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Конвертер видео из HTTP\HTTPS ссылки.
+ *
+ * @since 2.0.1
+ */
 public abstract class YoutubeLinkVideoConverter implements YoutubeVideoConverter {
 
-    private static final Pattern HTTP_PARAM_TEMPL = Pattern.compile("(\\w+)=([\\w-]+)");
+    // Спижжено отсюда: https://stackoverflow.com/a/6904504
+    private static final Pattern YT_PATTERN = Pattern.compile("(?:youtube\\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)|shorts?)/|.*[?&]v=)|youtu\\.be/)([^\"&?/\\s]{11})");
 
     /**
      * Преобразование youtube видео в mp3.
      *
-     * @param link         ссылка на видео.
-     * @param statusUpdate прослушивалка процесса обработки.
+     * @param link                 ссылка на видео.
+     * @param statusUpdateListener прослушивалка процесса обработки.
      *
      * @return результат преобразования.
      *
      * @since 2.0.0
      */
-    public Extraction downloadFromLink(String link, StatusUpdate statusUpdate) throws VideoConversionException {
+    public Extraction downloadFromLink(String link, StatusUpdateListener statusUpdateListener) throws VideoConversionException {
         String videoId = getVideoId(link);
-        return download(videoId, statusUpdate);
+        return download(videoId, statusUpdateListener);
     }
 
+    /**
+     * Метод извлечения кода видео из ссылки.
+     *
+     * @param link ссылка на видео.
+     *
+     * @throws VideoConversionException если не удалось определить код видео.
+     * @throws NullPointerException     если {@code link} == null.
+     */
     private String getVideoId(String link) throws VideoConversionException {
-        URI uri;
-        try {
-            uri = new URI(link);
-        } catch (URISyntaxException e) {
-            throw new VideoConversionException(e);
+        Matcher m = YT_PATTERN.matcher(link);
+        if (m.find()) {
+            return m.group(1);
         }
-
-        if (uri.getAuthority().equalsIgnoreCase("youtu.be")) {
-            return uri.getRawPath().substring(1);
-        }
-
-        if (uri.getAuthority().equalsIgnoreCase("www.youtube.com")) {
-            Matcher m = HTTP_PARAM_TEMPL.matcher(uri.getQuery());
-            Map<String, String> parameters = new HashMap<>();
-            while (m.find()) {
-                parameters.put(m.group(1), m.group(2));
-            }
-
-            if (!parameters.containsKey("v")) {
-                throw new VideoConversionException("No video ID in link");
-            }
-
-            return parameters.get("v");
-        }
-
         throw new VideoConversionException("Not a youtube link");
+    }
+
+    /**
+     * То же, только без прослушки.
+     *
+     * @param link ссылка на видео.
+     *
+     * @return результат преобразования.
+     *
+     * @since 2.0.1
+     */
+    public Extraction downloadFromLink(String link) throws VideoConversionException {
+        String videoId = getVideoId(link);
+        return download(videoId);
     }
 }

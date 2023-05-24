@@ -6,7 +6,7 @@ package ru.isador.converters.yt2mp3;
  * @since 1.0.0
  */
 @FunctionalInterface
-public interface StatusUpdate {
+public interface StatusUpdateListener {
 
     /**
      * Вызывается при изменении статуса обработки.

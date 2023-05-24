@@ -14,9 +14,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.glassfish.jersey.internal.inject.ExtractorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import ru.isador.converters.yt2mp3.Extraction;
 import ru.isador.converters.yt2mp3.ExtractionStatus;
-import ru.isador.converters.yt2mp3.StatusUpdate;
+import ru.isador.converters.yt2mp3.StatusUpdateListener;
 import ru.isador.converters.yt2mp3.VideoConversionException;
 import ru.isador.converters.yt2mp3.YoutubeLinkVideoConverter;
 
@@ -49,9 +50,10 @@ public class ApiYoutubeMp3Extractor extends YoutubeLinkVideoConverter {
     }
 
     @Override
-    public Extraction download(String id, StatusUpdate statusUpdate) throws VideoConversionException {
+    public Extraction download(String id, StatusUpdateListener listener) throws VideoConversionException {
+        MDC.put("videoId", id);
         logger.trace("Download started: {}", id);
-        Optional<StatusUpdate> su = Optional.ofNullable(statusUpdate);
+        Optional<StatusUpdateListener> su = Optional.ofNullable(listener);
 
         logger.trace("Video id resolved");
         su.ifPresent(l -> l.onStatusUpdated(ExtractionStatus.DRAFT));

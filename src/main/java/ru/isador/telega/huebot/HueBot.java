@@ -1,12 +1,10 @@
 package ru.isador.telega.huebot;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.jar.Manifest;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,51 +17,54 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import ru.isador.converters.yt2mp3.Extraction;
-import ru.isador.converters.yt2mp3.ExtractionStatus;
-import ru.isador.converters.yt2mp3.StatusUpdate;
-import ru.isador.converters.yt2mp3.VideoConversionException;
 import ru.isador.converters.yt2mp3.YoutubeLinkVideoConverter;
 import ru.isador.converters.yt2mp3.apiyoutubecc.ApiYoutubeMp3Extractor;
+import ru.isador.telega.huebot.version.ManifestVersionProvider;
+import ru.isador.telega.huebot.version.VersionProvider;
 
-public class HueBot extends TelegramLongPollingBot {
+public class HueBot extends TelegramLongPollingBot implements MessageSender {
 
     private static final Logger logger = LoggerFactory.getLogger(HueBot.class);
-    private static final Version VERSION;
-    private static final DateTimeFormatter DTM_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    static {
+    private final ExecutorService executorService;
+    private YoutubeLinkVideoConverter mp3Extractor;
+    private VersionProvider versionProvider;
 
-        try {
-            Manifest mf = new Manifest(HueBot.class.getClassLoader().getResourceAsStream("META-INF/MANIFEST.MF"));
-            String version = mf.getMainAttributes().getValue("Implementation-Version");
-            LocalDateTime buildTimestamp = LocalDateTime.parse(mf.getMainAttributes().getValue("Build-Time"), DTM_FORMAT);
-            VERSION = new Version(version, buildTimestamp);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private final YoutubeLinkVideoConverter mp3Extractor;
-    private final ExecutorService executor;
-
-    public HueBot() {
+    public HueBot(ExecutorService executorService) {
         super(System.getenv("BOT_TOKEN"));
-        mp3Extractor = new ApiYoutubeMp3Extractor();
-        executor = Executors.newFixedThreadPool(5);
+        this.executorService = executorService;
     }
 
     @Override
     public void onUpdateReceived(Update update) {
-        executor.execute(new MessageProcessor(update));
+        MessageProcessor ms = new MessageProcessor(update, this);
+        ms.setVersionProvider(versionProvider);
+        ms.setMp3Extractor(mp3Extractor);
+
+        try (Extraction extraction = executorService.submit(ms).get()) {
+            execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(update.getMessage().getChat().getId()).build());
+        } catch (TelegramApiException | InterruptedException | ExecutionException | IOException e) {
+            logger.error("", e);
+            sendText(e.getMessage(), update.getMessage().getChat().getId());
+        }
+    }
+
+    @Override
+    public void sendText(String text, Long chatId) {
+        try {
+            execute(SendMessage.builder().text(text).chatId(chatId).build());
+        } catch (TelegramApiException e) {
+            logger.error("", e);
+        }
     }
 
     @Override
     public void onClosing() {
         logger.debug("Shutting down");
-        executor.shutdownNow();
+        executorService.shutdownNow();
         try {
             logger.debug("Waiting executor");
-            if (!executor.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)) {
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.DAYS)) {
                 logger.error("Да нифига такого не случится");
             }
         } catch (InterruptedException e) {
@@ -77,66 +78,21 @@ public class HueBot extends TelegramLongPollingBot {
         return System.getenv("BOT_USERNAME");
     }
 
-    public static void main(String[] args) throws TelegramApiException {
+    public static void main(String[] args) throws TelegramApiException, IOException {
+        HueBot hueBot = new HueBot(Executors.newFixedThreadPool(5));
+                hueBot.setVersionProvider(new ManifestVersionProvider());
+        hueBot.setMp3Extractor(new ApiYoutubeMp3Extractor());
+
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
-        telegramBotsApi.registerBot(new HueBot());
+        telegramBotsApi.registerBot(hueBot);
         logger.debug("Bot started");
     }
 
-    private class MessageProcessor implements Runnable {
+    public void setMp3Extractor(YoutubeLinkVideoConverter mp3Extractor) {
+        this.mp3Extractor = mp3Extractor;
+    }
 
-        private final Update update;
-
-        public MessageProcessor(Update update) {
-            this.update = update;
-        }
-
-        @Override
-        public void run() {
-            logger.debug("{}: {}", update.getMessage().getFrom().getUserName(), update.getMessage().getText());
-            switch (update.getMessage().getText()) {
-                case "/start":
-                    sendText(update, """
-                        Дороу. Я простой бот который преобразует outube видео в mp3.
-                        Просто скинь мне ссылку на видео, и в ответ получишь mp3 максимум 320 кбит/c.
-                        """);
-                    break;
-                case "/version":
-                    sendText(update, String.format("Версия %s, от %s", VERSION.version(), VERSION.buildTimestamp().format(DTM_FORMAT)));
-                    break;
-                default:
-                    try (Extraction ex = mp3Extractor.downloadFromLink(update.getMessage().getText(), new TelegaStatusUpdate())) {
-                        try {
-                            execute(SendAudio.builder().audio(new InputFile(ex.stream(), ex.fileName())).chatId(update.getMessage().getChat().getId()).build());
-                        } catch (TelegramApiException e) {
-                            logger.error("", e);
-                        }
-                    } catch (VideoConversionException | IOException e) {
-                        sendText(update, e.getMessage());
-                    }
-            }
-        }
-
-        private void sendText(Update update, String text) {
-            try {
-                execute(SendMessage.builder().text(text).chatId(update.getMessage().getChat().getId()).build());
-            } catch (TelegramApiException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-
-        private class TelegaStatusUpdate implements StatusUpdate {
-
-            @Override
-            public void onStatusUpdated(ExtractionStatus status) {
-                switch (status) {
-                    case DRAFT -> sendText(update, "Запрос принят");
-                    case PROCESS -> sendText(update, "Обработка запущена");
-                    case PROCESSING -> sendText(update, "Всё ещё обрабатывается");
-                    case DONE -> sendText(update, "Обработано успешно, отправка...");
-                    case FAILED -> sendText(update, "Ошибка обработки...");
-                }
-            }
-        }
+    public void setVersionProvider(VersionProvider versionProvider) {
+        this.versionProvider = versionProvider;
     }
 }
