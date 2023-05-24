@@ -42,7 +42,9 @@ public class HueBot extends TelegramLongPollingBot implements MessageSender {
         ms.setMp3Extractor(mp3Extractor);
 
         try (Extraction extraction = executorService.submit(ms).get()) {
-            execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(update.getMessage().getChat().getId()).build());
+            if (extraction != null) {
+                execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(update.getMessage().getChat().getId()).build());
+            }
         } catch (TelegramApiException | InterruptedException | ExecutionException | IOException e) {
             logger.error("", e);
             sendText(e.getMessage(), update.getMessage().getChat().getId());
