@@ -1,8 +1,9 @@
 name: cicdshka
 
 on:
-  label:
-    types: [created]
+  push:
+    tags:
+      - '*'
 
 jobs:
   build:
