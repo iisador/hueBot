@@ -44,25 +44,6 @@ public class HueBot extends TelegramLongPollingBot implements MessageSender {
     }
 
     @Override
-    public void sendText(String text, Long chatId) {
-        try {
-            execute(SendMessage.builder().text(text).chatId(chatId).build());
-        } catch (TelegramApiException e) {
-            logger.error("", e);
-        }
-    }
-
-    @Override
-    public void sendAudio(Extraction extraction, Long chatId) {
-        try {
-            execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(chatId).build());
-        } catch (TelegramApiException e) {
-            logger.error("", e);
-            sendText(e.getMessage(), chatId);
-        }
-    }
-
-    @Override
     public void onClosing() {
         logger.debug("Shutting down");
         executorService.shutdownNow();
@@ -98,5 +79,25 @@ public class HueBot extends TelegramLongPollingBot implements MessageSender {
 
     public void setVersionProvider(VersionProvider versionProvider) {
         this.versionProvider = versionProvider;
+    }
+
+    @Override
+    public void sendText(String text, Long chatId) {
+        try {
+            execute(SendMessage.builder().text(text).chatId(chatId).build());
+        } catch (TelegramApiException e) {
+            logger.error("", e);
+        }
+    }
+
+
+    @Override
+    public void sendAudio(Extraction extraction, Long chatId) {
+        try {
+            execute(SendAudio.builder().audio(new InputFile(extraction.stream(), extraction.fileName())).chatId(chatId).build());
+        } catch (TelegramApiException e) {
+            logger.error("", e);
+            sendText(e.getMessage(), chatId);
+        }
     }
 }

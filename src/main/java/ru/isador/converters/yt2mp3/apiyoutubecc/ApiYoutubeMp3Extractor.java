@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.glassfish.jersey.internal.inject.ExtractorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import ru.isador.converters.yt2mp3.Extraction;
 import ru.isador.converters.yt2mp3.ExtractionStatus;
 import ru.isador.converters.yt2mp3.StatusUpdateListener;
@@ -51,22 +50,20 @@ public class ApiYoutubeMp3Extractor extends YoutubeLinkVideoConverter {
 
     @Override
     public Extraction download(String id, StatusUpdateListener listener) throws VideoConversionException {
-        MDC.put("videoId", id);
-        logger.trace("Download started: {}", id);
+        logger.trace("Download started");
         Optional<StatusUpdateListener> su = Optional.ofNullable(listener);
 
-        logger.trace("Video id resolved");
         su.ifPresent(l -> l.onStatusUpdated(ExtractionStatus.DRAFT));
 
         logger.debug("Checking video");
         Check check = checkVideo(id);
 
-        logger.debug("Check complete: {}", check);
+        logger.trace("{}", check);
         su.ifPresent(l -> l.onStatusUpdated(ExtractionStatus.PROCESS));
 
         logger.debug("Checking progress");
         Progress progress = getProgress(check.getHash());
-        logger.debug("Progress: {}", progress);
+        logger.trace("{}", progress);
 
         while (progress.isInProcess() && !progress.isError()) {
             su.ifPresent(l -> l.onStatusUpdated(ExtractionStatus.PROCESSING));
@@ -76,7 +73,7 @@ public class ApiYoutubeMp3Extractor extends YoutubeLinkVideoConverter {
                 throw new VideoConversionException("Extraction interrupted");
             }
             progress = getProgress(check.getHash());
-            logger.debug("Progress: {}", progress);
+            logger.trace("Progress: {}", progress);
         }
 
         if (progress.isDone()) {

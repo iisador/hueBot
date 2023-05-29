@@ -1,6 +1,8 @@
 name: cicdshka
 
-on: push
+on:
+  label:
+    types: [created]
 
 jobs:
   build:
