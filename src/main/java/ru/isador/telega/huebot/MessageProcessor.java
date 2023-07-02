@@ -49,6 +49,8 @@ public class MessageProcessor implements Runnable {
     @Override
     public void run() {
         MDC.put("queryId", queryId.toString());
+        logger.info("{}: {}", update.getMessage().getFrom().getUserName(), update.getMessage().getText());
+
         Long chatId = update.getMessage().getChat().getId();
 
         switch (update.getMessage().getText()) {
@@ -81,6 +83,9 @@ public class MessageProcessor implements Runnable {
         MDC.remove("queryId");
     }
 
+    /**
+     * Используется в аспекте {@link QueryTimingAspect}.
+     */
     UUID getQueryId() {
         return queryId;
     }

@@ -6,7 +6,7 @@
 
     <groupId>ru.isador.telega</groupId>
     <artifactId>hueBot</artifactId>
-    <version>2.0.3.1</version>
+    <version>2.0.4</version>
 
     <name>hueBot</name>
     <description>A simple hueBot.</description>
@@ -105,11 +105,34 @@
                     <execution>
                         <goals>
                             <goal>compile</goal>
-<!--                            <goal>test-compile</goal>-->
                         </goals>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
+
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>jdepend-maven-plugin</artifactId>
+                <version>2.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>javancss-maven-plugin</artifactId>
+                <version>2.1</version>
+                <configuration>
+                    <excludes>
+                        <!-- 16 жаба не поддерживается, поэтому исклчаем все фишки -->
+                        <exclude>**/MessageProcessor.java</exclude>
+                        <exclude>**/Extraction.java</exclude>
+                        <exclude>**/YoutubeVideoConverter.java</exclude>
+                        <exclude>**/ApiYoutubeMp3Extractor.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>
